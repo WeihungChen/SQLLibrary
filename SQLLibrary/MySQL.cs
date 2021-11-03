@@ -35,16 +35,19 @@ namespace SQLLibrary
             bool success = false;
             mutex.WaitOne();
             _connection.Open();
+            MySqlTransaction transaction = _connection.BeginTransaction();
             try
             {
-                using (var cmd = new MySqlCommand(command, _connection))
+                using (var cmd = new MySqlCommand(command, _connection, transaction))
                 {
                     cmd.CommandTimeout = 99999;
                     success = cmd.ExecuteNonQuery() > 0;
+                    transaction.Commit();
                 }
             }
-            catch(Exception e)
+            catch(MySqlException e)
             {
+                transaction.Rollback();
                 throw new ApplicationException(command, e);
             }
             _connection.Close();
@@ -58,9 +61,10 @@ namespace SQLLibrary
             bool success = false;
             mutex.WaitOne();
             _connection.Open();
+            MySqlTransaction transaction = _connection.BeginTransaction();
             try
             {
-                using (var cmd = new MySqlCommand(command, _connection))
+                using (var cmd = new MySqlCommand(command, _connection, transaction))
                 {
                     cmd.CommandTimeout = 99999;
                     MySqlDataReader reader = cmd.ExecuteReader();
@@ -70,11 +74,13 @@ namespace SQLLibrary
                         dataTable.Load(reader);
                     }
                     reader.Close();
+                    transaction.Commit();
                     success = true;
                 }
             }
-            catch(Exception e)
+            catch(MySqlException e)
             {
+                transaction.Rollback();
                 throw new ApplicationException(command, e);
             }
             _connection.Close();
